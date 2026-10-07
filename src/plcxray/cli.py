@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import json
 from datetime import datetime
-from typing import Any
 
 from .analyzer import analyze, summarize
 from .ir import PlcProject

@@ -134,18 +134,8 @@ def parse_project(path: str) -> PlcProject:
     ]
 
     pous = [
-        ProgramUnit(
-            name="POU_0",
-            kind="program",
-            status="detected",
-            detail="A generic program object was observed during container inspection.",
-        ),
-        ProgramUnit(
-            name="POU_1",
-            kind="unsupported",
-            status="unsupported",
-            detail="Proprietary ladder/PDU decoding remains intentionally unsupported in this build.",
-        ),
+        ProgramUnit(name="POU_0", kind="program", status="detected", detail="Generic program object observed during scan."),
+        ProgramUnit(name="POU_1", kind="unsupported", status="unsupported", detail="Proprietary ladder/PDU decoding intentionally unsupported."),
     ]
 
     warnings = [

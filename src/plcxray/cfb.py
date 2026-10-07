@@ -1,98 +1,39 @@
-from __future__ import annotations
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
 
-from dataclasses import dataclass, field
-from typing import Any, Dict, List
+[project]
+name = "plc-xray"
+version = "1.2.0"
+description = "Read-only engineering analysis software for Mitsubishi GX Works2/GX Works3 PLC projects"
+readme = "README.md"
+requires-python = ">=3.10"
+authors = [{name="Reachsey-v1"}]
+license = {file="LICENSE"}
+dependencies = []
 
+[project.scripts]
+plcxray = "plcxray.cli:main"
 
-@dataclass
-class Evidence:
-    source: str
-    item: str
-    detail: str
-    confidence: str = "low"
+[project.urls]
+Repository = "https://github.com/Reachsey-v1/PLC-XRAY"
+Documentation = "https://github.com/Reachsey-v1/PLC-XRAY/blob/main/README.md"
 
+[tool.setuptools]
+package-dir = {"" = "src"}
 
-@dataclass
-class Finding:
-    status: str
-    title: str
-    detail: str
+[tool.setuptools.packages.find]
+where = ["src"]
 
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-v --tb=short"
 
-@dataclass
-class ProgramUnit:
-    name: str
-    kind: str = "unknown"
-    status: str = "unknown"
-    detail: str = ""
+[tool.black]
+line-length = 120
+target-version = ['py310']
 
+[tool.isort]
+profile = "black"
+line_length = 120
 
-@dataclass
-class Device:
-    name: str
-    description: str = ""
-    kind: str = "device"
-
-
-@dataclass
-class Label:
-    name: str
-    address: str = ""
-    source: str = "unknown"
-
-
-@dataclass
-class PlcProject:
-    path: str
-    format: str
-    sha256: str
-    file_size: int
-    streams: List[str] = field(default_factory=list)
-    pous: List[ProgramUnit] = field(default_factory=list)
-    devices: List[Device] = field(default_factory=list)
-    labels: List[Label] = field(default_factory=list)
-    warnings: List[str] = field(default_factory=list)
-    project_name: str = ""
-    metadata: Dict[str, Any] = field(default_factory=dict)
-    evidence: List[Evidence] = field(default_factory=list)
-
-    def to_dict(self) -> Dict[str, Any]:
-        return {
-            "path": self.path,
-            "project_name": self.project_name,
-            "format": self.format,
-            "sha256": self.sha256,
-            "file_size": self.file_size,
-            "metadata": self.metadata,
-            "streams": self.streams,
-            "pous": [
-                {
-                    "name": p.name,
-                    "kind": p.kind,
-                    "status": p.status,
-                    "detail": p.detail,
-                }
-                for p in self.pous
-            ],
-            "devices": [
-                {"name": d.name, "description": d.description, "kind": d.kind}
-                for d in self.devices
-            ],
-            "labels": [
-                {"name": l.name, "address": l.address, "source": l.source}
-                for l in self.labels
-            ],
-            "warnings": self.warnings,
-            "evidence": [
-                {
-                    "source": e.source,
-                    "item": e.item,
-                    "detail": e.detail,
-                    "confidence": e.confidence,
-                }
-                for e in self.evidence
-            ],
-        }
-
-
-__all__ = ["Evidence", "Finding", "ProgramUnit", "Device", "Label", "PlcProject"]

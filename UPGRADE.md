@@ -1,37 +1,37 @@
-import json
+from plcxray.ir import Device, Label, PlcProject, ProgramUnit
+from plcxray.report import report_json, report_markdown
 
-from plcxray.ir import Device, Evidence, Label, PlcProject, ProgramUnit
 
-
-def test_ir_objects_build():
+def test_report_json():
     project = PlcProject(
-        path="sample.gxw",
-        project_name="sample",
+        path="test.gxw",
+        project_name="test",
         format="GX Works project container",
-        sha256="abc",
-        file_size=123,
+        sha256="abc123",
+        file_size=1024,
         streams=["ProjectInfo"],
         pous=[ProgramUnit(name="Main", kind="program")],
         devices=[Device(name="M0")],
         labels=[Label(name="START")],
-        evidence=[Evidence(source="scanner", item="labels", detail="one label discovered", confidence="low")],
     )
-    payload = project.to_dict()
-    assert payload["project_name"] == "sample"
-    assert payload["pous"][0]["name"] == "Main"
-    assert payload["devices"][0]["name"] == "M0"
-    assert payload["evidence"][0]["source"] == "scanner"
+    report = report_json(project)
+    assert "test" in report
+    assert "abc123" in report
 
 
-def test_ir_serialization():
+def test_report_markdown():
     project = PlcProject(
-        path="sample.gxw",
-        project_name="sample",
+        path="test.gxw",
+        project_name="test",
         format="GX Works project container",
-        sha256="abc",
-        file_size=123,
+        sha256="abc123",
+        file_size=1024,
+        streams=["ProjectInfo"],
+        pous=[ProgramUnit(name="Main", kind="program")],
+        devices=[Device(name="M0")],
+        labels=[Label(name="START")],
     )
-    payload = project.to_dict()
-    serialized = json.dumps(payload)
-    assert "sample" in serialized
-
+    report = report_markdown(project)
+    assert "# PLC-XRAY Inspection Report" in report
+    assert "test" in report
+    assert "GX Works project container" in report

@@ -1,55 +1,93 @@
 from __future__ import annotations
 
-import argparse
-import json
-from pathlib import Path
-
-from .analyzer import analyze
-from .parser import parse_project
+from dataclasses import dataclass, field
+from typing import Any, Dict, List
 
 
-def _inspect(path: str) -> None:
-    project = parse_project(path)
-    print(f"Format: {project.format}")
-    print(f"SHA-256: {project.sha256}")
-    print(f"File size: {project.file_size:,} bytes")
-    print(f"Streams: {len(project.streams)}")
-    print(f"POUs: {len(project.pous)}")
-    print(f"Labels: {len(project.labels)}")
-    print(f"Devices: {len(project.devices)}")
-    print("Verification: NOT VERIFIED — project is inspected read-only, not compiled or opened by GX Works")
-    for finding in analyze(project):
-        print(f"[{finding.status}] {finding.title}: {finding.detail}")
+@dataclass
+class Evidence:
+    source: str
+    item: str
+    detail: str
+    confidence: str = "low"
 
 
-def _report(path: str, output: str | None = None) -> None:
-    project = parse_project(path)
-    payload = project.to_dict()
-    if output:
-        Path(output).write_text(json.dumps(payload, indent=2), encoding="utf-8")
-        print(f"Report written to {output}")
-    else:
-        print(json.dumps(payload, indent=2))
+@dataclass
+class Finding:
+    status: str
+    title: str
+    detail: str
 
 
-def main() -> None:
-    parser = argparse.ArgumentParser(description="PLC-XRAY read-only GX Works inspection")
-    subparsers = parser.add_subparsers(dest="command", required=True)
-
-    inspect_parser = subparsers.add_parser("inspect", help="Inspect a GX Works project container")
-    inspect_parser.add_argument("path")
-
-    report_parser = subparsers.add_parser("report", help="Export a project report as JSON")
-    report_parser.add_argument("path")
-    report_parser.add_argument("-o", "--output", default=None)
-
-    args = parser.parse_args()
-
-    if args.command == "inspect":
-        _inspect(args.path)
-    elif args.command == "report":
-        _report(args.path, args.output)
+@dataclass
+class ProgramUnit:
+    name: str
+    kind: str = "unknown"
+    status: str = "unknown"
+    detail: str = ""
 
 
-if __name__ == "__main__":
-    main()
+@dataclass
+class Device:
+    name: str
+    description: str = ""
+    kind: str = "device"
+
+
+@dataclass
+class Label:
+    name: str
+    address: str = ""
+    source: str = "unknown"
+
+
+@dataclass
+class PlcProject:
+    path: str
+    format: str
+    sha256: str
+    file_size: int
+    streams: List[str] = field(default_factory=list)
+    pous: List[ProgramUnit] = field(default_factory=list)
+    devices: List[Device] = field(default_factory=list)
+    labels: List[Label] = field(default_factory=list)
+    warnings: List[str] = field(default_factory=list)
+    project_name: str = ""
+    metadata: Dict[str, Any] = field(default_factory=dict)
+    evidence: List[Evidence] = field(default_factory=list)
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "path": self.path,
+            "project_name": self.project_name,
+            "format": self.format,
+            "sha256": self.sha256,
+            "file_size": self.file_size,
+            "metadata": self.metadata,
+            "streams": self.streams,
+            "pous": [
+                {"name": p.name, "kind": p.kind, "status": p.status, "detail": p.detail}
+                for p in self.pous
+            ],
+            "devices": [
+                {"name": d.name, "description": d.description, "kind": d.kind}
+                for d in self.devices
+            ],
+            "labels": [
+                {"name": l.name, "address": l.address, "source": l.source}
+                for l in self.labels
+            ],
+            "warnings": self.warnings,
+            "evidence": [
+                {
+                    "source": e.source,
+                    "item": e.item,
+                    "detail": e.detail,
+                    "confidence": e.confidence,
+                }
+                for e in self.evidence
+            ],
+        }
+
+
+__all__ = ["Evidence", "Finding", "ProgramUnit", "Device", "Label", "PlcProject"]

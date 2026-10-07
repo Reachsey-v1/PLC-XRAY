@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from typing import List
 
+from .engines import AnalysisEngineResult
 from .ir import Finding, PlcProject
 
 
@@ -23,10 +24,7 @@ def analyze(project: PlcProject) -> List[Finding]:
         Finding(
             status="WARNING",
             title="Unsupported logic decode",
-            detail=(
-                "The binary ladder/PDU payload is proprietary and intentionally not "
-                "reverse-engineered in this implementation."
-            ),
+            detail="The binary ladder/PDU payload is proprietary and intentionally not reverse-engineered in this implementation.",
         ),
     ]
 
@@ -44,10 +42,7 @@ def analyze(project: PlcProject) -> List[Finding]:
             Finding(
                 status="INFO",
                 title="Evidence captured",
-                detail=(
-                    f"Captured {len(project.evidence)} evidence records with confidence levels "
-                    "from file scan and metadata analysis."
-                ),
+                detail=f"Captured {len(project.evidence)} evidence records with confidence levels from file scan and metadata analysis.",
             )
         )
 
@@ -56,16 +51,11 @@ def analyze(project: PlcProject) -> List[Finding]:
             Finding(
                 status="INFO",
                 title="Detected device candidates",
-                detail=(
-                    f"{len(project.devices)} device-like identifiers were recovered from the "
-                    "project container."
-                ),
+                detail=f"{len(project.devices)} device-like identifiers were recovered from the project container.",
             )
         )
     else:
-        findings.append(
-            Finding(status="INFO", title="Detected device candidates", detail="No device names were resolved.")
-        )
+        findings.append(Finding(status="INFO", title="Detected device candidates", detail="No device names were resolved."))
 
     if project.labels:
         findings.append(
@@ -100,3 +90,19 @@ def summarize(project: PlcProject) -> dict:
         "label_count": len(project.labels),
         "warnings": project.warnings,
     }
+
+
+def run_analysis(project: PlcProject) -> AnalysisEngineResult:
+    findings = [{"status": f.status, "title": f.title, "detail": f.detail} for f in analyze(project)]
+    return AnalysisEngineResult(
+        project_name=project.project_name,
+        format=project.format,
+        sha256=project.sha256,
+        summary=summarize(project),
+        findings=findings,
+        metadata=project.metadata,
+        warnings=project.warnings,
+    )
+
+
+__all__ = ["analyze", "summarize", "run_analysis"]
