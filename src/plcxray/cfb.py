@@ -1,44 +1,98 @@
 from __future__ import annotations
 
-import hashlib
-import os
-from typing import List
-
-try:
-    import olefile  # type: ignore
-except Exception:  # pragma: no cover
-    olefile = None
+from dataclasses import dataclass, field
+from typing import Any, Dict, List
 
 
-class CfbReader:
-    """Minimal GX Works / CFB container reader.
-
-    This implementation intentionally stops at the container boundary and does not
-    try to interpret proprietary ladder/PDU binary payloads.
-    """
-
-    @staticmethod
-    def list_streams(path: str) -> List[str]:
-        if olefile is None:
-            return []
-        try:
-            with olefile.OleFileIO(path) as ole:
-                names: List[str] = []
-                for entry in ole.listdir():
-                    if entry:
-                        names.append("/".join(str(part) for part in entry))
-                return sorted(set(names))
-        except Exception:
-            return []
-
-    @staticmethod
-    def read_metadata(path: str):
-        size = os.path.getsize(path)
-        digest = hashlib.sha256()
-        with open(path, "rb") as handle:
-            for chunk in iter(lambda: handle.read(65536), b""):
-                digest.update(chunk)
-        return {"file_size": size, "sha256": digest.hexdigest()}
+@dataclass
+class Evidence:
+    source: str
+    item: str
+    detail: str
+    confidence: str = "low"
 
 
-__all__ = ["CfbReader"]
+@dataclass
+class Finding:
+    status: str
+    title: str
+    detail: str
+
+
+@dataclass
+class ProgramUnit:
+    name: str
+    kind: str = "unknown"
+    status: str = "unknown"
+    detail: str = ""
+
+
+@dataclass
+class Device:
+    name: str
+    description: str = ""
+    kind: str = "device"
+
+
+@dataclass
+class Label:
+    name: str
+    address: str = ""
+    source: str = "unknown"
+
+
+@dataclass
+class PlcProject:
+    path: str
+    format: str
+    sha256: str
+    file_size: int
+    streams: List[str] = field(default_factory=list)
+    pous: List[ProgramUnit] = field(default_factory=list)
+    devices: List[Device] = field(default_factory=list)
+    labels: List[Label] = field(default_factory=list)
+    warnings: List[str] = field(default_factory=list)
+    project_name: str = ""
+    metadata: Dict[str, Any] = field(default_factory=dict)
+    evidence: List[Evidence] = field(default_factory=list)
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "path": self.path,
+            "project_name": self.project_name,
+            "format": self.format,
+            "sha256": self.sha256,
+            "file_size": self.file_size,
+            "metadata": self.metadata,
+            "streams": self.streams,
+            "pous": [
+                {
+                    "name": p.name,
+                    "kind": p.kind,
+                    "status": p.status,
+                    "detail": p.detail,
+                }
+                for p in self.pous
+            ],
+            "devices": [
+                {"name": d.name, "description": d.description, "kind": d.kind}
+                for d in self.devices
+            ],
+            "labels": [
+                {"name": l.name, "address": l.address, "source": l.source}
+                for l in self.labels
+            ],
+            "warnings": self.warnings,
+            "evidence": [
+                {
+                    "source": e.source,
+                    "item": e.item,
+                    "detail": e.detail,
+                    "confidence": e.confidence,
+                }
+                for e in self.evidence
+            ],
+        }
+
+
+__all__ = ["Evidence", "Finding", "ProgramUnit", "Device", "Label", "PlcProject"]

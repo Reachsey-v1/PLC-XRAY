@@ -1,45 +1,37 @@
-import json
-import subprocess
-import sys
+from plcxray.ir import Device, Label, PlcProject, ProgramUnit
+from plcxray.report import report_json, report_markdown
 
 
-def test_cli_help():
-    result = subprocess.run(
-        [sys.executable, "-m", "plcxray.cli", "--help"],
-        capture_output=True,
-        text=True,
-        check=False,
+def test_report_json():
+    project = PlcProject(
+        path="test.gxw",
+        project_name="test",
+        format="GX Works project container",
+        sha256="abc123",
+        file_size=1024,
+        streams=["ProjectInfo"],
+        pous=[ProgramUnit(name="Main", kind="program")],
+        devices=[Device(name="M0")],
+        labels=[Label(name="START")],
     )
-    assert result.returncode == 0
-    assert "PLC-XRAY" in result.stdout
-    assert "inspect" in result.stdout
-    assert "report" in result.stdout
+    report = report_json(project)
+    assert "test" in report
+    assert "abc123" in report
 
 
-def test_cli_json_output(tmp_path):
-    project_path = tmp_path / "sample.gxw"
-    project_path.write_bytes(b"PLC-XRAY-FAKE-GXW")
-    result = subprocess.run(
-        [sys.executable, "-m", "plcxray.cli", "inspect", str(project_path), "--json"],
-        capture_output=True,
-        text=True,
-        check=False,
+def test_report_markdown():
+    project = PlcProject(
+        path="test.gxw",
+        project_name="test",
+        format="GX Works project container",
+        sha256="abc123",
+        file_size=1024,
+        streams=["ProjectInfo"],
+        pous=[ProgramUnit(name="Main", kind="program")],
+        devices=[Device(name="M0")],
+        labels=[Label(name="START")],
     )
-    assert result.returncode == 0
-    payload = json.loads(result.stdout)
-    assert payload["project_name"] == "sample"
-    assert payload["format"]
-
-
-def test_cli_report_markdown(tmp_path):
-    project_path = tmp_path / "sample.gxw"
-    project_path.write_bytes(b"PLC-XRAY-FAKE-GXW")
-    result = subprocess.run(
-        [sys.executable, "-m", "plcxray.cli", "report", str(project_path), "--markdown"],
-        capture_output=True,
-        text=True,
-        check=False,
-    )
-    assert result.returncode == 0
-    assert "# PLC-XRAY Inspection Report" in result.stdout
-    assert "sample" in result.stdout
+    report = report_markdown(project)
+    assert "# PLC-XRAY Inspection Report" in report
+    assert "test" in report
+    assert "GX Works project container" in report

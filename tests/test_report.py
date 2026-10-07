@@ -1,37 +1,44 @@
-from plcxray.report import report_json, report_markdown
-from plcxray.ir import PlcProject, Device, Label, ProgramUnit
+from __future__ import annotations
+
+import hashlib
+import os
+from typing import List
+
+try:
+    import olefile  # type: ignore
+except Exception:  # pragma: no cover
+    olefile = None
 
 
-def test_report_json():
-    project = PlcProject(
-        path="test.gxw",
-        project_name="test",
-        format="GX Works project container",
-        sha256="abc123",
-        file_size=1024,
-        streams=["ProjectInfo"],
-        pous=[ProgramUnit(name="Main", kind="program")],
-        devices=[Device(name="M0")],
-        labels=[Label(name="START")],
-    )
-    report = report_json(project)
-    assert "test" in report
-    assert "abc123" in report
+class CfbReader:
+    """Minimal GX Works / Compound File Binary reader.
+
+    This intentionally only inspects the file container shell and avoids interpreting
+    proprietary ladder logic bytes.
+    """
+
+    @staticmethod
+    def list_streams(path: str) -> List[str]:
+        if olefile is None:
+            return []
+        try:
+            with olefile.OleFileIO(path) as ole:
+                names: List[str] = []
+                for entry in ole.listdir():
+                    if entry:
+                        names.append("/".join(str(part) for part in entry))
+                return sorted(set(names))
+        except Exception:
+            return []
+
+    @staticmethod
+    def read_metadata(path: str):
+        size = os.path.getsize(path)
+        digest = hashlib.sha256()
+        with open(path, "rb") as handle:
+            for chunk in iter(lambda: handle.read(65536), b""):
+                digest.update(chunk)
+        return {"file_size": size, "sha256": digest.hexdigest()}
 
 
-def test_report_markdown():
-    project = PlcProject(
-        path="test.gxw",
-        project_name="test",
-        format="GX Works project container",
-        sha256="abc123",
-        file_size=1024,
-        streams=["ProjectInfo"],
-        pous=[ProgramUnit(name="Main", kind="program")],
-        devices=[Device(name="M0")],
-        labels=[Label(name="START")],
-    )
-    report = report_markdown(project)
-    assert "# PLC-XRAY Inspection Report" in report
-    assert "test" in report
-    assert "GX Works project container" in report
+__all__ = ["CfbReader"]

@@ -1,38 +1,43 @@
-[build-system]
-requires = ["setuptools>=68"]
-build-backend = "setuptools.build_meta"
+# PLC-XRAY Professional Upgrade
 
-[project]
-name = "plc-xray"
-version = "1.2.0"
-description = "Read-only engineering analysis software for Mitsubishi GX Works2/GX Works3 PLC projects"
-readme = "README.md"
-requires-python = ">=3.10"
-authors = [{name="Reachsey-v1"}]
-license = {file="LICENSE"}
-dependencies = []
+This branch contains the professional-grade upgrade for PLC-XRAY v1.2.0, including:
 
-[project.scripts]
-plcxray = "plcxray.cli:main"
+## Features Added
 
-[project.urls]
-Repository = "https://github.com/Reachsey-v1/PLC-XRAY"
-Documentation = "https://github.com/Reachsey-v1/PLC-XRAY/blob/main/README.md"
+- Evidence-aware metadata model with confidence scoring
+- Rich project serialization with metadata, warnings, and evidence
+- JSON and Markdown report generation
+- Enhanced CLI with `inspect` and `report` commands
+- GUI export support for JSON and Markdown
+- Expanded test suite for parser, IR, CLI and report generation
 
-[tool.setuptools]
-package-dir = {"" = "src"}
+## Safety Boundaries
 
-[tool.setuptools.packages.find]
-where = ["src"]
+- Read-only project inspection only
+- No native GX Works validation is claimed or executed
+- No ladder/PDU reverse engineering is attempted
+- No download or online write to PLC hardware
 
-[tool.pytest.ini_options]
-testpaths = ["tests"]
-addopts = "-v --tb=short"
+## Usage
 
-[tool.black]
-line-length = 120
-target-version = ['py310']
+```bash
+python -m plcxray.cli inspect path/to/project.gxw
+python -m plcxray.cli report path/to/project.gxw --markdown -o report.md
+python PLC-XRAY-GUI.pyw
+```
 
-[tool.isort]
-profile = "black"
-line_length = 120
+## Testing
+
+```bash
+python -m pytest -q
+```
+
+## Future Roadmap
+
+- Full proprietary ladder/PDU decoding
+- Device cross-reference semantics
+- Timer/counter analysis
+- Trace engine and simulation
+- GX Works3 adapter
+- Native verification adapter
+

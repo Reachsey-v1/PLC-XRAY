@@ -3,7 +3,7 @@ from __future__ import annotations
 import hashlib
 import re
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Dict, List
 
 from .ir import Device, Evidence, Label, PlcProject, ProgramUnit
 
@@ -20,7 +20,7 @@ def _scan_metadata(blob: bytes) -> Dict[str, str]:
     meta: Dict[str, str] = {}
     lower = blob[:4096].lower()
     if b"gx works" in lower:
-        meta["signature"] = "GX Works signature detected in header bytes"
+        meta["signature"] = "GX Works signature detected in the leading bytes"
     if b"_hdb" in lower:
         meta["ole_stream_hint"] = "Compound File Binary stream hint detected"
     if b"projectinfo" in lower:
@@ -37,9 +37,19 @@ def _extract_device_candidates(blob: bytes) -> List[Device]:
         if token:
             names.add(token)
     if not names:
-        return [Device(name="UNSPECIFIED", description="No device-like tokens were confidently recovered.", kind="unknown")]
+        return [
+            Device(
+                name="UNSPECIFIED",
+                description="No device-like tokens were confidently recovered.",
+                kind="unknown",
+            )
+        ]
     return [
-        Device(name=name, description="Device-like token observed during container scan.", kind="detected")
+        Device(
+            name=name,
+            description="Device-like token observed during container scan.",
+            kind="detected",
+        )
         for name in sorted(names)[:20]
     ]
 
@@ -97,10 +107,30 @@ def parse_project(path: str) -> PlcProject:
     devices = _extract_device_candidates(blob)
     labels = _extract_labels(blob)
     evidence = [
-        Evidence(source="filesystem", item="sha256", detail=f"SHA-256 calculated for {project_name}", confidence="high"),
-        Evidence(source="container", item="project_type", detail=f"Container classified as {format_name}", confidence="medium"),
-        Evidence(source="scanner", item="device_candidates", detail=f"Recovered {len(devices)} potential device entries", confidence="low"),
-        Evidence(source="scanner", item="labels", detail=f"Recovered {len(labels)} label-like entries", confidence="low"),
+        Evidence(
+            source="filesystem",
+            item="sha256",
+            detail=f"SHA-256 calculated for {project_name}",
+            confidence="high",
+        ),
+        Evidence(
+            source="container",
+            item="project_type",
+            detail=f"Container classified as {format_name}",
+            confidence="medium",
+        ),
+        Evidence(
+            source="scanner",
+            item="device_candidates",
+            detail=f"Recovered {len(devices)} potential device entries",
+            confidence="low",
+        ),
+        Evidence(
+            source="scanner",
+            item="labels",
+            detail=f"Recovered {len(labels)} label-like entries",
+            confidence="low",
+        ),
     ]
 
     pous = [

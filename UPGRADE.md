@@ -1,69 +1,37 @@
-# PLC-XRAY Professional Upgrade
+import json
 
-This branch contains the professional-grade upgrade for PLC-XRAY v1.2.0, including:
+from plcxray.ir import Device, Evidence, Label, PlcProject, ProgramUnit
 
-## Features Added
 
-- **Evidence-aware metadata model** — structured capture of project inspection evidence with confidence levels
-- **Rich project serialization** — comprehensive JSON export including metadata, evidence, and findings
-- **Report generation** — JSON and Markdown report templates for project analysis
-- **Enhanced CLI** — `inspect` and `report` commands with JSON/Markdown output modes
-- **Professional test suite** — smoke tests for parser, analyzer, CLI, and report generation
-- **Package-level exports** — clean public API for downstream tooling
+def test_ir_objects_build():
+    project = PlcProject(
+        path="sample.gxw",
+        project_name="sample",
+        format="GX Works project container",
+        sha256="abc",
+        file_size=123,
+        streams=["ProjectInfo"],
+        pous=[ProgramUnit(name="Main", kind="program")],
+        devices=[Device(name="M0")],
+        labels=[Label(name="START")],
+        evidence=[Evidence(source="scanner", item="labels", detail="one label discovered", confidence="low")],
+    )
+    payload = project.to_dict()
+    assert payload["project_name"] == "sample"
+    assert payload["pous"][0]["name"] == "Main"
+    assert payload["devices"][0]["name"] == "M0"
+    assert payload["evidence"][0]["source"] == "scanner"
 
-## Architecture
 
-```
-src/plcxray/
-├── __init__.py          # Package exports
-├── ir.py               # Intermediate representation (Evidence, Finding, PlcProject, etc.)
-├── parser.py           # GX Works container parser (conservative, read-only)
-├── analyzer.py         # Project analysis and findings generation
-├── report.py           # Report generation (JSON and Markdown)
-└── cli.py              # Command-line interface
+def test_ir_serialization():
+    project = PlcProject(
+        path="sample.gxw",
+        project_name="sample",
+        format="GX Works project container",
+        sha256="abc",
+        file_size=123,
+    )
+    payload = project.to_dict()
+    serialized = json.dumps(payload)
+    assert "sample" in serialized
 
-tests/
-├── test_ir.py          # IR model tests
-├── test_cfb.py         # Parser tests
-├── test_cli.py         # CLI command tests
-└── test_report.py      # Report generation tests
-```
-
-## Safety Boundaries
-
-- ✅ Read-only container inspection
-- ✅ Conservative device/label extraction
-- ✅ Explicit unsupported ladder/PDU decode warnings
-- ❌ No proprietary logic reverse-engineering
-- ❌ No native GX Works verification claims
-- ❌ No PLC download, online write, or device control
-
-## Usage Examples
-
-### Inspect a project
-```bash
-python -m plcxray.cli inspect project.gxw
-python -m plcxray.cli inspect project.gxw --json
-```
-
-### Generate reports
-```bash
-python -m plcxray.cli report project.gxw --markdown -o report.md
-python -m plcxray.cli report project.gxw --json -o report.json
-```
-
-## Testing
-
-```bash
-python -m pytest -v tests/
-```
-
-## Next Steps (Future Roadmap)
-
-- [ ] Full proprietary ladder/PDU decoding (roadmap item)
-- [ ] Complete device cross-reference semantics
-- [ ] Timer/counter semantic analyzer
-- [ ] Trace engine (WHY/backward/forward)
-- [ ] Simulation and regression test engine
-- [ ] GX Works3 adapter improvements
-- [ ] Native GX Works verification adapter

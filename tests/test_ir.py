@@ -1,35 +1,27 @@
-from plcxray.ir import Device, Evidence, Label, PlcProject, ProgramUnit
-import json
+from plcxray.parser import parse_project
+import pytest
 
 
-def test_ir_objects_build():
-    project = PlcProject(
-        path="sample.gxw",
-        project_name="sample",
-        format="GX Works project container",
-        sha256="abc",
-        file_size=123,
-        streams=["ProjectInfo"],
-        pous=[ProgramUnit(name="Main", kind="program")],
-        devices=[Device(name="M0")],
-        labels=[Label(name="START")],
-        evidence=[Evidence(source="scanner", item="labels", detail="one label discovered", confidence="low")],
-    )
-    payload = project.to_dict()
-    assert payload["project_name"] == "sample"
-    assert payload["pous"][0]["name"] == "Main"
-    assert payload["devices"][0]["name"] == "M0"
-    assert payload["evidence"][0]["source"] == "scanner"
+def test_parse_project_smoke(tmp_path):
+    project_path = tmp_path / "sample.gxw"
+    project_path.write_bytes(b"PLC-XRAY-FAKE-GXW")
+    project = parse_project(str(project_path))
+    assert project.path == str(project_path)
+    assert project.file_size == len(b"PLC-XRAY-FAKE-GXW")
+    assert project.format == "GX Works project container"
+    assert project.warnings
+    assert project.metadata
+    assert project.evidence
 
 
-def test_ir_serialization():
-    project = PlcProject(
-        path="sample.gxw",
-        project_name="sample",
-        format="GX Works project container",
-        sha256="abc",
-        file_size=123,
-    )
-    payload = project.to_dict()
-    serialized = json.dumps(payload)  # Should not raise
-    assert "sample" in serialized
+def test_parse_project_missing(tmp_path):
+    missing_path = tmp_path / "missing.gxw"
+    with pytest.raises(FileNotFoundError):
+        parse_project(str(missing_path))
+
+
+def test_parse_project_g3(tmp_path):
+    project_path = tmp_path / "sample.g3"
+    project_path.write_bytes(b"GX3-DATA")
+    project = parse_project(str(project_path))
+    assert project.format == "GX Works3 project container"
