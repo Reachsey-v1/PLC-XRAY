@@ -1,20 +1,22 @@
 [build-system]
-requires = ["setuptools>=69"]
+requires = ["setuptools>=68"]
 build-backend = "setuptools.build_meta"
 
 [project]
 name = "plc-xray"
 version = "1.2.0"
-description = "Evidence-first read-only Mitsubishi PLC engineering forensic suite"
-requires-python = ">=3.11"
+description = "Read-only engineering analysis software for Mitsubishi GX Works2/GX Works3 PLC projects"
+readme = "README.md"
+requires-python = ">=3.10"
+authors = [{name="Reachsey-v1"}]
+license = {file="LICENSE"}
 dependencies = []
-
-[project.optional-dependencies]
-dev = ["pytest>=8", "pyinstaller>=6"]
 
 [project.scripts]
 plcxray = "plcxray.cli:main"
 
+[tool.setuptools]
+package-dir = {"" = "src"}
 [tool.setuptools.packages.find]
 where = ["src"]
 

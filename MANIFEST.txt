@@ -1,0 +1,20 @@
+PLC-XRAY v1.2.0 Source Package
+
+This archive contains the actual source tree for GitHub upload.
+Do NOT upload the archive itself as the repository source.
+Upload/extract its contents into the repository root.
+
+Top-level:
+src/
+tests/
+assets/
+.github/
+docs/
+PLC-XRAY-GUI.pyw
+PLC-XRAY-GUI.spec
+pyproject.toml
+README.md
+LICENSE
+BUILD_WINDOWS_EXE.bat
+run_gui.bat
+run_inspect.bat

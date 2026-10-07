@@ -1,11 +1,13 @@
 __pycache__/
+*.py[cod]
 .pytest_cache/
-*.pyc
 .venv/
 venv/
-build/
 dist/
+build/
 *.spec.bak
+*.gxw
+*.g3
+*.zip
+*.rar
 .DS_Store
-Thumbs.db
-*.log
