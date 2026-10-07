@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List
 
 
 @dataclass
@@ -43,6 +43,7 @@ class PlcProject:
     pous: List[ProgramUnit] = field(default_factory=list)
     devices: List[Device] = field(default_factory=list)
     labels: List[Label] = field(default_factory=list)
+    warnings: List[str] = field(default_factory=list)
 
     def to_dict(self) -> Dict[str, Any]:
         return {
@@ -68,4 +69,5 @@ class PlcProject:
                 {"name": l.name, "address": l.address, "source": l.source}
                 for l in self.labels
             ],
+            "warnings": self.warnings,
         }

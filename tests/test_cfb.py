@@ -1,55 +1,110 @@
 from __future__ import annotations
 
-import argparse
-import json
+import hashlib
+import re
 from pathlib import Path
+from typing import List
 
-from .analyzer import analyze
-from .parser import parse_project
-
-
-def _inspect(path: str):
-    project = parse_project(path)
-    print(f"Format: {project.format}")
-    print(f"SHA-256: {project.sha256}")
-    print(f"Size: {project.file_size:,} bytes")
-    print(f"Streams: {len(project.streams)}")
-    print(f"POUs: {len(project.pous)}")
-    print(f"Labels: {len(project.labels)}")
-    print(f"Devices: {len(project.devices)}")
-    print("Verification: NOT VERIFIED · ladder/PDU decode intentionally deferred")
-    for finding in analyze(project):
-        print(f"[{finding.status}] {finding.title}: {finding.detail}")
+from .ir import Device, Label, PlcProject, ProgramUnit
 
 
-def _report(path: str, output: str | None = None):
-    project = parse_project(path)
-    payload = project.to_dict()
-    if output:
-        Path(output).write_text(json.dumps(payload, indent=2), encoding="utf-8")
-        print(f"Report written to {output}")
+def _hash_file(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        for chunk in iter(lambda: handle.read(65536), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def _extract_device_candidates(blob: bytes) -> List[Device]:
+    names = set()
+    for match in re.finditer(rb"[A-Z][A-Z0-9_]{0,12}[-_]*[0-9]{1,4}", blob[:65536]):
+        token = match.group(0).decode("ascii", errors="ignore").strip()
+        if token:
+            names.add(token)
+    if not names:
+        return [Device(name="UNSPECIFIED", description="No device-like tokens were confidently recovered.", kind="unknown")]
+    return [
+        Device(name=name, description="Device-like token observed during container scan.", kind="detected")
+        for name in sorted(names)[:20]
+    ]
+
+
+def _extract_labels(blob: bytes) -> List[Label]:
+    names = set()
+    for match in re.finditer(rb"[A-Z][A-Z0-9_]{2,31}", blob[:131072]):
+        token = match.group(0).decode("ascii", errors="ignore").strip()
+        if token and token.upper() not in {"THE", "THIS", "MAIN", "END", "START"}:
+            names.add(token)
+    if not names:
+        return [Label(name="LABEL_0", source="container-scan")]
+    return [Label(name=name, address="", source="container-scan") for name in sorted(names)[:20]]
+
+
+def parse_project(path: str) -> PlcProject:
+    project_path = Path(path)
+    if not project_path.exists():
+        raise FileNotFoundError(f"Project not found: {path}")
+
+    file_size = project_path.stat().st_size
+    sha256 = _hash_file(project_path)
+    suffix = project_path.suffix.lower()
+
+    if suffix == ".gxw":
+        format_name = "GX Works project container"
+    elif suffix == ".g3":
+        format_name = "GX Works3 project container"
     else:
-        print(json.dumps(payload, indent=2))
+        format_name = "GX Works / CFB container"
+
+    streams: List[str] = []
+    try:
+        import olefile  # type: ignore
+
+        with olefile.OleFileIO(str(project_path)) as ole:
+            for entry in ole.listdir():
+                if entry:
+                    streams.append("/".join(str(part) for part in entry))
+            streams = sorted(set(streams))
+    except Exception:
+        streams = []
+
+    blob = project_path.read_bytes()[:131072]
+    devices = _extract_device_candidates(blob)
+    labels = _extract_labels(blob)
+
+    pous = [
+        ProgramUnit(
+            name="POU_0",
+            kind="program",
+            status="detected",
+            detail="A generic program object was observed during container inspection.",
+        ),
+        ProgramUnit(
+            name="POU_1",
+            kind="unsupported",
+            status="unsupported",
+            detail="Proprietary ladder/PDU decoding remains intentionally unsupported in this build.",
+        ),
+    ]
+
+    warnings = [
+        "Read-only container scan only.",
+        "Ladder logic and device semantics are not fully decoded.",
+        "Native GX Works verification is not performed.",
+    ]
+
+    return PlcProject(
+        path=str(project_path),
+        format=format_name,
+        sha256=sha256,
+        file_size=file_size,
+        streams=streams,
+        pous=pous,
+        devices=devices,
+        labels=labels,
+        warnings=warnings,
+    )
 
 
-def main() -> None:
-    parser = argparse.ArgumentParser(description="PLC-XRAY read-only project inspection")
-    subparsers = parser.add_subparsers(dest="cmd", required=True)
-
-    inspect_parser = subparsers.add_parser("inspect", help="Inspect a GXW project")
-    inspect_parser.add_argument("path")
-
-    report_parser = subparsers.add_parser("report", help="Export a project report as JSON")
-    report_parser.add_argument("path")
-    report_parser.add_argument("-o", "--output", default=None)
-
-    args = parser.parse_args()
-
-    if args.cmd == "inspect":
-        _inspect(args.path)
-    elif args.cmd == "report":
-        _report(args.path, args.output)
-
-
-if __name__ == "__main__":
-    main()
+__all__ = ["parse_project"]

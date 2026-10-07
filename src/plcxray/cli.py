@@ -6,46 +6,51 @@ from .ir import Finding, PlcProject
 
 
 def analyze(project: PlcProject) -> List[Finding]:
-    findings: List[Finding] = []
-    findings.append(
+    findings: List[Finding] = [
         Finding(
             status="INFO",
-            title="Container type",
-            detail=f"Project identified as {project.format}.",
-        )
-    )
-    findings.append(
+            title="Container summary",
+            detail=f"Project type: {project.format}; file size: {project.file_size:,} bytes; SHA-256: {project.sha256}.",
+        ),
         Finding(
             status="INFO",
-            title="File summary",
-            detail=f"SHA-256 {project.sha256}; {project.file_size:,} bytes; {len(project.streams)} streams; {len(project.pous)} POU entries.",
-        )
-    )
-    findings.append(
+            title="Stream inventory",
+            detail=f"Observed {len(project.streams)} container stream entries.",
+        ),
         Finding(
             status="WARNING",
-            title="Unsupported ladder logic decode",
-            detail="Proprietary ladder/PDU opcodes are intentionally not guessed. The project is read-only and the logic remains unverified.",
+            title="Unsupported logic decode",
+            detail="The binary ladder/PDU payload is proprietary and intentionally not reverse-engineered in this implementation.",
+        ),
+    ]
+
+    if project.devices:
+        findings.append(
+            Finding(
+                status="INFO",
+                title="Detected device candidates",
+                detail=f"{len(project.devices)} device-like identifiers were recovered from the project container.",
+            )
+        )
+    else:
+        findings.append(Finding(status="INFO", title="Detected device candidates", detail="No device names were resolved."))
+
+    if project.labels:
+        findings.append(
+            Finding(
+                status="INFO",
+                title="Recovered labels",
+                detail=f"{len(project.labels)} label-like names were recovered during container scanning.",
+            )
+        )
+    else:
+        findings.append(Finding(status="INFO", title="Recovered labels", detail="No labels were recovered."))
+
+    findings.append(
+        Finding(
+            status="INFO",
+            title="Verification status",
+            detail="This tool is read-only and does not claim native GX Works compile/open validation.",
         )
     )
-    if not project.devices:
-        findings.append(Finding("INFO", "Devices", "No device references were extracted."))
-    else:
-        findings.append(
-            Finding(
-                "INFO",
-                "Devices",
-                f"{len(project.devices)} device candidates discovered in project metadata.",
-            )
-        )
-    if not project.labels:
-        findings.append(Finding("INFO", "Labels", "No labels were extracted."))
-    else:
-        findings.append(
-            Finding(
-                "INFO",
-                "Labels",
-                f"{len(project.labels)} label entries extracted from the project container.",
-            )
-        )
     return findings

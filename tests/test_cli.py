@@ -12,5 +12,7 @@ def test_ir_objects_build():
         devices=[Device(name="M0")],
         labels=[Label(name="START")],
     )
-    assert project.to_dict()["path"] == "sample.gxw"
-    assert project.pous[0].name == "Main"
+    payload = project.to_dict()
+    assert payload["path"] == "sample.gxw"
+    assert payload["pous"][0]["name"] == "Main"
+    assert payload["devices"][0]["name"] == "M0"

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import os
-from typing import Iterable, List
+from typing import List
 
 try:
     import olefile  # type: ignore
@@ -11,10 +11,10 @@ except Exception:  # pragma: no cover
 
 
 class CfbReader:
-    """Minimal Compound File Binary reader wrapper.
+    """Minimal GX Works / CFB container reader.
 
-    This implementation intentionally keeps the scope narrow and defensively reports
-    unsupported structures instead of guessing proprietary ladder logic bytes.
+    This implementation intentionally stops at the container boundary and does not
+    try to interpret proprietary ladder/PDU binary payloads.
     """
 
     @staticmethod
@@ -23,7 +23,11 @@ class CfbReader:
             return []
         try:
             with olefile.OleFileIO(path) as ole:
-                return sorted(ole.listdir())
+                names: List[str] = []
+                for entry in ole.listdir():
+                    if entry:
+                        names.append("/".join(str(part) for part in entry))
+                return sorted(set(names))
         except Exception:
             return []
 
@@ -31,13 +35,10 @@ class CfbReader:
     def read_metadata(path: str):
         size = os.path.getsize(path)
         digest = hashlib.sha256()
-        with open(path, "rb") as fh:
-            for chunk in iter(lambda: fh.read(65536), b""):
+        with open(path, "rb") as handle:
+            for chunk in iter(lambda: handle.read(65536), b""):
                 digest.update(chunk)
-        return {
-            "file_size": size,
-            "sha256": digest.hexdigest(),
-        }
+        return {"file_size": size, "sha256": digest.hexdigest()}
 
 
 __all__ = ["CfbReader"]
