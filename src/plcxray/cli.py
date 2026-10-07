@@ -72,3 +72,17 @@ def analyze(project: PlcProject) -> List[Finding]:
         )
     )
     return findings
+
+
+def summarize(project: PlcProject) -> dict:
+    return {
+        "project_name": project.project_name,
+        "format": project.format,
+        "sha256": project.sha256,
+        "file_size": project.file_size,
+        "stream_count": len(project.streams),
+        "pou_count": len(project.pous),
+        "device_count": len(project.devices),
+        "label_count": len(project.labels),
+        "warnings": project.warnings,
+    }

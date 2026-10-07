@@ -3,7 +3,7 @@ from __future__ import annotations
 import hashlib
 import re
 from pathlib import Path
-from typing import Dict, List
+from typing import Any, Dict, List
 
 from .ir import Device, Evidence, Label, PlcProject, ProgramUnit
 
@@ -18,14 +18,15 @@ def _hash_file(path: Path) -> str:
 
 def _scan_metadata(blob: bytes) -> Dict[str, str]:
     meta: Dict[str, str] = {}
-    if b"GX Works" in blob[:4096].upper():
-        meta["signature"] = "GX Works signature detected"
-    if b"_hdb" in blob[:4096]:
-        meta["ole_stream_hint"] = "Compound binary container marker present"
-    if b"ProjectInfo" in blob[:4096]:
-        meta["project_info_hint"] = "Project info marker detected"
+    lower = blob[:4096].lower()
+    if b"gx works" in lower:
+        meta["signature"] = "GX Works signature detected in header bytes"
+    if b"_hdb" in lower:
+        meta["ole_stream_hint"] = "Compound File Binary stream hint detected"
+    if b"projectinfo" in lower:
+        meta["project_info_hint"] = "ProjectInfo marker detected"
     if not meta:
-        meta["signature"] = "No known GX marker detected in file header"
+        meta["signature"] = "No known GX marker detected in the leading bytes"
     return meta
 
 

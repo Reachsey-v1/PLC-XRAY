@@ -1,0 +1,34 @@
+from __future__ import annotations
+
+import json
+from typing import Any
+
+from .analyzer import summarize
+
+
+def build_report(project: Any) -> dict:
+    return {
+        "summary": summarize(project),
+        "analysis": [
+            {
+                "status": finding.status,
+                "title": finding.title,
+                "detail": finding.detail,
+            }
+            for finding in __import__("plcxray.analyzer", fromlist=["analyze"]).analyze(project)
+        ],
+        "metadata": project.metadata,
+        "evidence": [
+            {
+                "source": evidence.source,
+                "item": evidence.item,
+                "detail": evidence.detail,
+                "confidence": evidence.confidence,
+            }
+            for evidence in project.evidence
+        ],
+    }
+
+
+def report_json(project: Any) -> str:
+    return json.dumps(build_report(project), indent=2)
