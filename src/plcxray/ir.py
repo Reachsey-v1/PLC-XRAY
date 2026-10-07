@@ -5,6 +5,14 @@ from typing import Any, Dict, List
 
 
 @dataclass
+class Evidence:
+    source: str
+    item: str
+    detail: str
+    confidence: str = "low"
+
+
+@dataclass
 class Finding:
     status: str
     title: str
@@ -44,13 +52,18 @@ class PlcProject:
     devices: List[Device] = field(default_factory=list)
     labels: List[Label] = field(default_factory=list)
     warnings: List[str] = field(default_factory=list)
+    project_name: str = ""
+    metadata: Dict[str, Any] = field(default_factory=dict)
+    evidence: List[Evidence] = field(default_factory=list)
 
     def to_dict(self) -> Dict[str, Any]:
         return {
             "path": self.path,
+            "project_name": self.project_name,
             "format": self.format,
             "sha256": self.sha256,
             "file_size": self.file_size,
+            "metadata": self.metadata,
             "streams": self.streams,
             "pous": [
                 {
@@ -70,4 +83,13 @@ class PlcProject:
                 for l in self.labels
             ],
             "warnings": self.warnings,
+            "evidence": [
+                {
+                    "source": e.source,
+                    "item": e.item,
+                    "detail": e.detail,
+                    "confidence": e.confidence,
+                }
+                for e in self.evidence
+            ],
         }

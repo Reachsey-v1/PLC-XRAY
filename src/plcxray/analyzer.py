@@ -3,9 +3,9 @@ from __future__ import annotations
 import hashlib
 import re
 from pathlib import Path
-from typing import List
+from typing import Dict, List
 
-from .ir import Device, Label, PlcProject, ProgramUnit
+from .ir import Device, Evidence, Label, PlcProject, ProgramUnit
 
 
 def _hash_file(path: Path) -> str:
@@ -16,19 +16,31 @@ def _hash_file(path: Path) -> str:
     return digest.hexdigest()
 
 
+def _scan_metadata(blob: bytes) -> Dict[str, str]:
+    meta: Dict[str, str] = {}
+    if b"GX Works" in blob[:4096].upper():
+        meta["signature"] = "GX Works signature detected"
+    if b"_hdb" in blob[:4096]:
+        meta["ole_stream_hint"] = "Compound binary container marker present"
+    if b"ProjectInfo" in blob[:4096]:
+        meta["project_info_hint"] = "Project info marker detected"
+    if not meta:
+        meta["signature"] = "No known GX marker detected in file header"
+    return meta
+
+
 def _extract_device_candidates(blob: bytes) -> List[Device]:
-    # Keep this intentionally conservative: only look for simple ASCII-like patterns
-    # typical of PLC tag/device names. We do not infer semantics beyond that.
-    device_names = set()
+    names = set()
     for match in re.finditer(rb"[A-Z][A-Z0-9_]{0,12}[-_]*[0-9]{1,4}", blob[:65536]):
         token = match.group(0).decode("ascii", errors="ignore").strip()
         if token:
-            device_names.add(token)
-    devices = [
-        Device(name=name, description="Device-like token observed in container metadata.", kind="detected")
-        for name in sorted(device_names)[:15]
+            names.add(token)
+    if not names:
+        return [Device(name="UNSPECIFIED", description="No device-like tokens were confidently recovered.", kind="unknown")]
+    return [
+        Device(name=name, description="Device-like token observed during container scan.", kind="detected")
+        for name in sorted(names)[:20]
     ]
-    return devices or [Device(name="UNSPECIFIED", description="No device tokens were confidently identified.", kind="unknown")]
 
 
 def _extract_labels(blob: bytes) -> List[Label]:
@@ -37,11 +49,9 @@ def _extract_labels(blob: bytes) -> List[Label]:
         token = match.group(0).decode("ascii", errors="ignore").strip()
         if token and token.upper() not in {"THE", "THIS", "MAIN", "END", "START"}:
             names.add(token)
-    labels = [
-        Label(name=name, address="", source="container-scan")
-        for name in sorted(names)[:20]
-    ]
-    return labels or [Label(name="LABEL_0", source="container-scan")]
+    if not names:
+        return [Label(name="LABEL_0", source="container-scan")]
+    return [Label(name=name, address="", source="container-scan") for name in sorted(names)[:20]]
 
 
 def parse_project(path: str) -> PlcProject:
@@ -52,6 +62,7 @@ def parse_project(path: str) -> PlcProject:
     file_size = project_path.stat().st_size
     sha256 = _hash_file(project_path)
     suffix = project_path.suffix.lower()
+    project_name = project_path.stem or project_path.name
 
     if suffix == ".gxw":
         format_name = "GX Works project container"
@@ -72,9 +83,24 @@ def parse_project(path: str) -> PlcProject:
     except Exception:
         streams = []
 
-    blob_bytes = project_path.read_bytes()[:131072]
-    device_candidates = _extract_device_candidates(blob_bytes)
-    labels = _extract_labels(blob_bytes)
+    blob = project_path.read_bytes()[:131072]
+    metadata = {
+        "filename": project_path.name,
+        "extension": suffix,
+        "size_bytes": str(file_size),
+        "sha256": sha256,
+        "container_type": format_name,
+    }
+    metadata.update(_scan_metadata(blob))
+
+    devices = _extract_device_candidates(blob)
+    labels = _extract_labels(blob)
+    evidence = [
+        Evidence(source="filesystem", item="sha256", detail=f"SHA-256 calculated for {project_name}", confidence="high"),
+        Evidence(source="container", item="project_type", detail=f"Container classified as {format_name}", confidence="medium"),
+        Evidence(source="scanner", item="device_candidates", detail=f"Recovered {len(devices)} potential device entries", confidence="low"),
+        Evidence(source="scanner", item="labels", detail=f"Recovered {len(labels)} label-like entries", confidence="low"),
+    ]
 
     pous = [
         ProgramUnit(
@@ -92,7 +118,7 @@ def parse_project(path: str) -> PlcProject:
     ]
 
     warnings = [
-        "The project is used as a read-only container scan.",
+        "Read-only container scan only.",
         "Ladder logic and device semantics are not fully decoded.",
         "Native GX Works verification is not performed.",
     ]
@@ -104,9 +130,12 @@ def parse_project(path: str) -> PlcProject:
         file_size=file_size,
         streams=streams,
         pous=pous,
-        devices=device_candidates,
+        devices=devices,
         labels=labels,
         warnings=warnings,
+        project_name=project_name,
+        metadata=metadata,
+        evidence=evidence,
     )
 
 
