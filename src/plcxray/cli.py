@@ -1,88 +1,94 @@
 from __future__ import annotations
 
-from typing import List
+import argparse
+import json
+from pathlib import Path
 
-from .ir import Finding, PlcProject
+from .analyzer import analyze
+from .parser import parse_project
+from .report import report_json, report_markdown
 
 
-def analyze(project: PlcProject) -> List[Finding]:
-    findings: List[Finding] = [
-        Finding(
-            status="INFO",
-            title="Container summary",
-            detail=f"Project type: {project.format}; name: {project.project_name}; file size: {project.file_size:,} bytes; SHA-256: {project.sha256}.",
-        ),
-        Finding(
-            status="INFO",
-            title="Stream inventory",
-            detail=f"Observed {len(project.streams)} container stream entries.",
-        ),
-        Finding(
-            status="WARNING",
-            title="Unsupported logic decode",
-            detail="The binary ladder/PDU payload is proprietary and intentionally not reverse-engineered in this implementation.",
-        ),
-    ]
+def _emit_project(project, as_json: bool) -> None:
+    if as_json:
+        print(json.dumps(project.to_dict(), indent=2))
+        return
 
-    if project.metadata.get("signature"):
-        findings.append(
-            Finding(
-                status="INFO",
-                title="Header evidence",
-                detail=project.metadata["signature"],
-            )
-        )
+    print(f"Project: {project.project_name}")
+    print(f"Format: {project.format}")
+    print(f"SHA-256: {project.sha256}")
+    print(f"File size: {project.file_size:,} bytes")
+    print(f"Streams: {len(project.streams)}")
+    print(f"POUs: {len(project.pous)}")
+    print(f"Labels: {len(project.labels)}")
+    print(f"Devices: {len(project.devices)}")
+    print("Verification: NOT VERIFIED — project is inspected read-only, not compiled or opened by GX Works")
+    for finding in analyze(project):
+        print(f"[{finding.status}] {finding.title}: {finding.detail}")
 
-    if project.evidence:
-        findings.append(
-            Finding(
-                status="INFO",
-                title="Evidence captured",
-                detail=f"Captured {len(project.evidence)} evidence records with confidence levels from file scan and metadata analysis.",
-            )
-        )
 
-    if project.devices:
-        findings.append(
-            Finding(
-                status="INFO",
-                title="Detected device candidates",
-                detail=f"{len(project.devices)} device-like identifiers were recovered from the project container.",
-            )
-        )
+def _inspect(path: str, as_json: bool = False) -> None:
+    project = parse_project(path)
+    _emit_project(project, as_json)
+
+
+def _report(
+    path: str, output: str | None = None, as_json: bool = False, as_markdown: bool = False
+) -> None:
+    project = parse_project(path)
+
+    if as_markdown:
+        content = report_markdown(project)
+        if output:
+            Path(output).write_text(content, encoding="utf-8")
+            print(f"Markdown report written to {output}")
+        else:
+            print(content)
     else:
-        findings.append(Finding(status="INFO", title="Detected device candidates", detail="No device names were resolved."))
+        payload = project.to_dict()
+        if output:
+            Path(output).write_text(json.dumps(payload, indent=2), encoding="utf-8")
+            print(f"JSON report written to {output}")
+        elif as_json:
+            print(json.dumps(payload, indent=2))
+        else:
+            _emit_project(project, False)
 
-    if project.labels:
-        findings.append(
-            Finding(
-                status="INFO",
-                title="Recovered labels",
-                detail=f"{len(project.labels)} label-like names were recovered during container scanning.",
-            )
-        )
-    else:
-        findings.append(Finding(status="INFO", title="Recovered labels", detail="No labels were recovered."))
 
-    findings.append(
-        Finding(
-            status="INFO",
-            title="Verification status",
-            detail="This tool is read-only and does not claim native GX Works compile/open validation.",
-        )
+def main() -> None:
+    parser = argparse.ArgumentParser(
+        description="PLC-XRAY v1.2.0 — Read-only GX Works project inspection toolkit",
+        epilog="All operations are read-only. Native GX Works verification is not performed.",
     )
-    return findings
+    subparsers = parser.add_subparsers(dest="command", required=True)
+
+    inspect_parser = subparsers.add_parser("inspect", help="Inspect a GX Works project container")
+    inspect_parser.add_argument("path", help="Path to .gxw or .g3 project file")
+    inspect_parser.add_argument("--json", action="store_true", help="Emit machine-readable JSON output")
+
+    report_parser = subparsers.add_parser(
+        "report", help="Generate a structured report for a GX Works project"
+    )
+    report_parser.add_argument("path", help="Path to .gxw or .g3 project file")
+    report_parser.add_argument(
+        "-o", "--output", default=None, help="Output file path (JSON or Markdown)"
+    )
+    report_parser.add_argument(
+        "--json", action="store_true", help="Emit JSON report to stdout"
+    )
+    report_parser.add_argument(
+        "--markdown",
+        action="store_true",
+        help="Generate Markdown report (use with -o or default to stdout)",
+    )
+
+    args = parser.parse_args()
+
+    if args.command == "inspect":
+        _inspect(args.path, args.json)
+    elif args.command == "report":
+        _report(args.path, args.output, args.json, args.markdown)
 
 
-def summarize(project: PlcProject) -> dict:
-    return {
-        "project_name": project.project_name,
-        "format": project.format,
-        "sha256": project.sha256,
-        "file_size": project.file_size,
-        "stream_count": len(project.streams),
-        "pou_count": len(project.pous),
-        "device_count": len(project.devices),
-        "label_count": len(project.labels),
-        "warnings": project.warnings,
-    }
+if __name__ == "__main__":
+    main()

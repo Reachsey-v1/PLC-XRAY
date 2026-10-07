@@ -15,10 +15,24 @@ dependencies = []
 [project.scripts]
 plcxray = "plcxray.cli:main"
 
+[project.urls]
+Repository = "https://github.com/Reachsey-v1/PLC-XRAY"
+Documentation = "https://github.com/Reachsey-v1/PLC-XRAY/blob/main/README.md"
+
 [tool.setuptools]
 package-dir = {"" = "src"}
+
 [tool.setuptools.packages.find]
 where = ["src"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+addopts = "-v --tb=short"
+
+[tool.black]
+line-length = 120
+target-version = ['py310']
+
+[tool.isort]
+profile = "black"
+line_length = 120
